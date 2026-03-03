@@ -278,7 +278,7 @@
     }
     h1.hero-title {
       font-family: var(--font-display);
-      font-size: clamp(40px, 8vw, 100px);
+      font-size: clamp(46px, 8vw, 96px);
       font-weight: 800;
       line-height: 1.02;
       letter-spacing: -0.04em;
@@ -1731,9 +1731,6 @@ const mouseGlow = document.getElementById('mouse-glow');
 let mx = 0, my = 0, rx = 0, ry = 0;
 let cursorVisible = false;
 
-// Sadece pointer (mouse) cihazlarda custom cursor göster
-const hasPointer = window.matchMedia('(pointer: fine)').matches;
-
 function showCursor() {
   if (!cursorVisible) {
     cursorVisible = true;
@@ -1749,18 +1746,38 @@ function hideCursor() {
   mouseGlow.style.opacity = '0';
 }
 
-// Mouse event listeners sadece pointer cihazlarda ekle
-if (hasPointer) {
-  document.addEventListener('mousemove', e => {
-    mx = e.clientX; my = e.clientY;
-    cursor.style.left = mx + 'px';
-    cursor.style.top  = my + 'px';
-    mouseGlow.style.left = mx + 'px';
-    mouseGlow.style.top  = my + 'px';
-    showCursor();
-  });
-  document.addEventListener('mouseleave', hideCursor);
-}
+// Mouse: göster / hareket et / çıkınca gizle
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px';
+  cursor.style.top  = my + 'px';
+  mouseGlow.style.left = mx + 'px';
+  mouseGlow.style.top  = my + 'px';
+  showCursor();
+});
+document.addEventListener('mouseleave', hideCursor);
+
+// Touch: sadece dokunma anında görünür, bırakınca kaybolur
+let touchHideTimer = null;
+document.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  mx = rx = t.clientX; my = ry = t.clientY;
+  cursor.style.left    = mx + 'px'; cursor.style.top    = my + 'px';
+  cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px';
+  mouseGlow.style.left = mx + 'px'; mouseGlow.style.top  = my + 'px';
+  clearTimeout(touchHideTimer);
+  showCursor();
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  mx = rx = t.clientX; my = ry = t.clientY;
+  cursor.style.left    = mx + 'px'; cursor.style.top    = my + 'px';
+  cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px';
+  mouseGlow.style.left = mx + 'px'; mouseGlow.style.top  = my + 'px';
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  touchHideTimer = setTimeout(hideCursor, 350);
+}, { passive: true });
 
 function animateCursorRing() {
   rx += (mx - rx) * 0.12;
@@ -1769,9 +1786,7 @@ function animateCursorRing() {
   cursorRing.style.top  = ry + 'px';
   requestAnimationFrame(animateCursorRing);
 }
-if (hasPointer) {
-  animateCursorRing();
-}
+animateCursorRing();
 
 // ── NAV SCROLL ──
 const navbar = document.getElementById('navbar');
