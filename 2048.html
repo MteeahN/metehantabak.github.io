@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2048 — Metehan Tabak</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/MobileNav.css">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #080a0f;
+      --bg2: #0d1017;
+      --surface: rgba(255,255,255,0.03);
+      --surface-hover: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.06);
+      --border-hover: rgba(255,255,255,0.14);
+      --accent: #ff8000;
+      --accent2: #FFB266;
+      --accent-glow: rgba(232,192,122,0.18);
+      --accent-glow-strong: rgba(232,192,122,0.35);
+      --text: #f0f0ee;
+      --text-muted: rgba(240,240,238,0.45);
+      --text-dim: rgba(240,240,238,0.25);
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.7; overflow-x: hidden; cursor: none; }
+
+    body, * { cursor: none !important; }
+
+    /* CURSOR */
+    #cursor { position: fixed; top: 0; left: 0; width: 12px; height: 12px; background: var(--accent); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%,-50%); transition: width .2s, height .2s; }
+    #cursor-ring { position: fixed; top: 0; left: 0; width: 36px; height: 36px; border: 1.5px solid rgba(232,192,122,0.5); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%,-50%); }
+    #mouse-glow { position: fixed; width: 600px; height: 600px; pointer-events: none; z-index: 0; background: radial-gradient(circle, rgba(232,192,122,0.06) 0%, transparent 70%); transform: translate(-50%,-50%); transition: all .4s ease; border-radius: 50%; }
+    body:has(a:hover) #cursor, body:has(button:hover) #cursor { width: 20px; height: 20px; }
+    body:has(a:hover) #cursor-ring, body:has(button:hover) #cursor-ring { width: 56px; height: 56px; border-color: var(--accent); }
+
+    /* PRELOADER */
+    #preloader { position: fixed; inset: 0; background: var(--bg); z-index: 99999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; transition: opacity .6s ease, visibility .6s ease; }
+    #preloader.hidden { opacity: 0; visibility: hidden; }
+    .preloader-logo { font-family: var(--font-display); font-size: 40px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); }
+    .preloader-logo span { color: var(--accent); }
+    .preloader-bar-wrap { width: 200px; height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+    .preloader-bar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); width: 0%; animation: preload 1.4s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes preload { 0%{width:0%} 40%{width:60%} 80%{width:88%} 100%{width:100%} }
+
+    /* NAV */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 0 clamp(24px,5vw,80px); height: 72px; display: flex; align-items: center; gap: 24px; transition: background .4s, backdrop-filter .4s; }
+    nav.scrolled { background: rgba(8,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+    .nav-logo { text-decoration: none; flex: 0 0 auto; display: flex; align-items: center; }
+    .nav-logo-img { height: 32px; width: auto; display: block; object-fit: contain; filter: brightness(1); transition: opacity .25s; }
+    .nav-logo:hover .nav-logo-img { opacity: 0.8; }
+    .nav-links { display: flex; align-items: center; gap: 40px; list-style: none; }
+    .nav-links a { font-size: 14px; font-weight: 500; color: var(--text-muted); text-decoration: none; letter-spacing: 0.02em; transition: color .25s; position: relative; }
+    .nav-links a::after { content:''; position:absolute; bottom:-4px; left:0; width:0; height:1px; background:var(--accent); transition:width .3s cubic-bezier(.4,0,.2,1); }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after { width: 100%; }
+    .nav-back { display: none; }
+    .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 1.5px; background: var(--text); border-radius: 2px; }
+
+        /* ══ HERO ══ */
+    #hero {
+      position: relative;
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    /* subtle dark base */
+    .hero-art {
+      position: absolute; inset: 0; z-index: 0;
+    }
+    .hero-art::before {
+      content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        radial-gradient(ellipse 110% 70% at 50% 0%,   rgba(8,10,15,0.55) 0%, transparent 60%),
+        radial-gradient(ellipse 100% 50% at 50% 100%,  rgba(8,10,15,0.95) 0%, rgba(8,10,15,0.6) 40%, transparent 70%);
+    }
+    .hero-art::after {
+      content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: linear-gradient(to top,
+        var(--bg) 0%, rgba(8,10,15,0.96) 12%, rgba(8,10,15,0.80) 25%,
+        rgba(8,10,15,0.45) 45%, rgba(8,10,15,0.15) 65%, transparent 80%);
+    }
+    .hero-noise { position: absolute; inset: 0; z-index: 3;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 200px; pointer-events: none; }
+    .hero-grid { position: absolute; inset: 0; z-index: 3;
+      background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 0%, transparent 75%);
+      pointer-events: none; }
+
+    /* content strip — flex row: text left, logo right */
+    .hero-content {
+      position: relative; z-index: 10; width: 100%;
+      padding: 0 clamp(28px,5vw,88px) clamp(52px,6vw,88px);
+      opacity: 0; animation: fadeUp .9s ease .25s forwards;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0;
+      overflow: visible;
+    }
+    /* text sits on top of the logo bleed */
+    .hero-text {
+      flex: 1; min-width: 0;
+      position: relative; z-index: 2;
+    }
+
+    /* ── PARALLAX LOGO IMG ── */
+    #heroLogoImg {
+      flex-shrink: 0;
+      width: clamp(1000px, 52vw, 720px);
+      height: clamp(420px, 52vw, 720px);
+      object-fit: contain;
+      display: block;
+      margin-right: 40px;
+      opacity: 0;
+      will-change: transform;
+      position: relative; z-index: 1;
+      transition: opacity 0.7s ease;
+      pointer-events: none;
+    }
+    #heroLogoImg.loaded { opacity: 0.65; }
+    @media (max-width: 768px) { #heroLogoImg { display: none; } }
+    .hero-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,.35); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 20px; }
+    .hero-breadcrumb a { color: rgba(255,255,255,.35); text-decoration: none; transition: color .2s; }
+    .hero-breadcrumb a:hover { color: var(--accent); }
+    .hero-breadcrumb-sep { opacity: .4; }
+    .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .hero-tag { padding: 4px 13px; background: rgba(232,192,122,0.1); border: 1px solid rgba(232,192,122,0.22); border-radius: 100px; font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase; }
+    h1.hero-title { font-family: var(--font-display); font-size: clamp(52px, 9.5vw, 108px); font-weight: 800; line-height: .95; letter-spacing: -0.04em; color: #fff; margin-bottom: 20px; text-shadow: 0 4px 40px rgba(0,0,0,.5); }
+    h1.hero-title span { display: block; background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 80%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-desc { font-size: clamp(14px, 1.6vw, 17px); color: rgba(255,255,255,.55); max-width: 560px; line-height: 1.75; font-weight: 300; margin-bottom: 36px; }
+    .hero-meta { display: flex; gap: 48px; flex-wrap: wrap; }
+    .meta-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; }
+    .meta-value { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+    .hero-scroll { position: absolute; bottom: 32px; right: clamp(24px,5vw,80px); display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); opacity: 0; animation: fadeUp .8s ease 1s forwards; }
+    .scroll-line { width: 40px; height: 1px; background: rgba(255,255,255,.18); overflow: hidden; position: relative; }
+    .scroll-line::after { content:''; position:absolute; left:-100%; top:0; width:100%; height:100%; background:var(--accent); animation: lineSlide 2.2s ease 1.8s infinite; }
+    @keyframes lineSlide { 0%{left:-100%} 50%{left:0%} 100%{left:100%} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+
+
+    /* ══ STICKY PROJECT BAR ══ */
+    #project-bar {
+      position: fixed;
+      top: 72px; left: 0; right: 0;
+      height: 52px;
+      z-index: 900;
+      display: flex;
+      align-items: center;
+      padding: 0 clamp(20px,4vw,72px);
+      background: rgba(8,10,15,0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      /* Tamamen viewport dışına çek */
+      transform: translateY(calc(-100% - 72px));
+      opacity: 0;
+      transition: transform 0.42s cubic-bezier(.4,0,.2,1), opacity 0.38s ease;
+      pointer-events: none;
+    }
+    #project-bar.visible {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* Scroll progress bar */
+    #project-bar::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px;
+      width: var(--scroll-pct, 0%);
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width 0.1s linear;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .pbar-left {
+      display: flex; align-items: center; gap: 10px;
+      flex: 0 0 auto; min-width: 0;
+    }
+    .pbar-logo { width: 26px; height: 26px; object-fit: contain; border-radius: 6px; opacity: 0.85; }
+    .pbar-divider { width: 1px; height: 18px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
+    .pbar-name { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; white-space: nowrap; }
+
+    /* ── CENTERED pbar-nav ── */
+    .pbar-nav-wrap {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+    }
+    .pbar-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 100%;
+    }
+    .pbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 11px; border-radius: 7px;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none; font-size: 11.5px; font-weight: 600;
+      letter-spacing: 0.01em; white-space: nowrap;
+      transition: color .22s, background .22s;
+      border: none; background: transparent; cursor: pointer;
+      position: relative;
+    }
+    .pbar-btn::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 50%;
+      transform: translateX(-50%) scaleX(0);
+      width: 60%; height: 2px;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .25s;
+      opacity: 0;
+    }
+    .pbar-btn svg { flex-shrink: 0; opacity: 0.6; transition: opacity .22s, color .22s; }
+    .pbar-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .pbar-btn:hover svg { opacity: 1; }
+    .pbar-btn.active { color: var(--accent); }
+    .pbar-btn.active::after { transform: translateX(-50%) scaleX(1); opacity: 1; }
+    .pbar-btn.active svg { opacity: 1; color: var(--accent); }
+
+    /* Mirror of pbar-left — nav'ı gerçekten ortalar */
+    .pbar-right { flex: 0 0 auto; visibility: hidden; display: flex; align-items: center; gap: 10px; }
+    .pbar-right .pbar-logo { width: 26px; height: 26px; }
+    .pbar-right .pbar-divider { width: 1px; height: 18px; }
+    .pbar-right .pbar-name { font-size: 13px; }
+
+    /* DIVIDER */
+    .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border) 30%, var(--border) 70%, transparent); margin: 0 clamp(24px,5vw,80px); }
+
+    /* SECTION BASE */
+    .section-wrap { max-width: 1200px; margin: 0 auto; padding: 100px clamp(24px,5vw,80px); }
+    .section-label { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 16px; }
+    .section-label::before { content:''; display:block; width:24px; height:1px; background:var(--accent); }
+    .section-title { font-family: var(--font-display); font-size: clamp(28px,4.5vw,48px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--text); }
+    .section-desc { font-size: 17px; color: var(--text-muted); margin-top: 16px; font-weight: 300; line-height: 1.8; }
+
+    /* REVEAL */
+    .reveal { opacity: 0; transform: translateY(32px); transition: opacity .8s cubic-bezier(.4,0,.2,1), transform .8s cubic-bezier(.4,0,.2,1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: .1s; }
+    .reveal-delay-2 { transition-delay: .2s; }
+    .reveal-delay-3 { transition-delay: .3s; }
+    .reveal-delay-4 { transition-delay: .4s; }
+
+    /* OVERVIEW */
+    #overview { background: var(--bg); }
+    .overview-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 80px; align-items: start; margin-top: 56px; }
+    .overview-body { font-size: 16px; color: var(--text-muted); line-height: 1.85; font-weight: 300; }
+    .overview-body p + p { margin-top: 18px; }
+    .overview-body strong { color: var(--text); font-weight: 500; }
+    .overview-stats { display: flex; flex-direction: column; gap: 2px; }
+    .stat-card { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; transition: all .3s; }
+    .stat-card:hover { background: var(--surface-hover); border-color: var(--border-hover); transform: translateX(4px); }
+    .stat-card-num { font-family: var(--font-display); font-size: 36px; font-weight: 800; letter-spacing: -0.04em; color: var(--text); line-height: 1; }
+    .stat-card-num span { color: var(--accent); }
+    .stat-card-label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; font-weight: 600; }
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* CHALLENGE / SOLUTION */
+    #challenge { background: var(--bg2); }
+    .cs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 56px; }
+    .cs-card { padding: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; transition: all .4s; }
+    .cs-card:hover { background: var(--surface-hover); border-color: var(--border-hover); transform: translateY(-4px); }
+    .cs-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--accent); margin-bottom: 20px; }
+    .cs-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; margin-bottom: 16px; }
+    .cs-body { font-size: 15px; color: var(--text-muted); line-height: 1.8; font-weight: 300; }
+    .cs-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .cs-item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-muted); }
+    .cs-item::before { content:''; display:block; width:5px; height:5px; border-radius:50%; background:var(--accent); margin-top:8px; flex-shrink:0; }
+
+        /* GALLERY */
+    #gallery { background: var(--bg); }
+
+    /* ── Gallery Layout ── */
+    .gallery-showcase { display: flex; flex-direction: column; gap: 32px; margin-top: 56px; }
+
+    /* Row wrappers */
+    .gallery-row { display: flex; gap: 24px; align-items: stretch; }
+
+    /* ── DEVICE LABEL ── */
+    .device-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-dim); margin-bottom: 10px;
+    }
+    .device-label svg { opacity: .55; }
+
+    /* ── DESKTOP FRAME ── */
+    .device-desktop {
+      flex: 1; min-width: 0;
+      transition: transform .4s cubic-bezier(.4,0,.2,1);
+    }
+    .device-desktop:hover { transform: translateY(-5px); }
+
+    .browser-frame {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid var(--border-hover);
+      background: #1a1d24;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+      transition: box-shadow .4s, border-color .4s;
+    }
+    .device-desktop:hover .browser-frame {
+      box-shadow: 0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(232,192,122,0.14);
+      border-color: rgba(232,192,122,0.2);
+    }
+    .browser-bar {
+      height: 36px; background: #141720;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; padding: 0 14px; gap: 7px; flex-shrink: 0;
+    }
+    .browser-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .browser-dot:nth-child(1) { background: #ff5f57; }
+    .browser-dot:nth-child(2) { background: #febc2e; }
+    .browser-dot:nth-child(3) { background: #28c840; }
+    .browser-url {
+      flex: 1; height: 20px; background: rgba(255,255,255,0.05);
+      border-radius: 4px; margin: 0 10px; display: flex; align-items: center;
+      padding: 0 8px; gap: 6px;
+    }
+    .browser-url-lock { width: 8px; height: 8px; opacity: .4; }
+    .browser-url-text {
+      font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 0.02em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .browser-screen {
+      width: 100%; aspect-ratio: 16/10; overflow: hidden;
+      position: relative; display: block;
+    }
+    .browser-screen img {
+      width: 100%; height: 100%; object-fit: cover; object-position: top center;
+      display: block; transition: transform .6s cubic-bezier(.4,0,.2,1);
+    }
+    .device-desktop:hover .browser-screen img { transform: scale(1.03); }
+
+    /* ── MOBILE FRAME ── */
+    .device-mobile {
+      flex: 0 0 auto; width: 190px;
+      transition: transform .4s cubic-bezier(.4,0,.2,1);
+    }
+    .device-mobile:hover { transform: translateY(-5px); }
+
+    .phone-frame {
+      border-radius: 30px; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.1);
+      background: #111318;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(255,255,255,0.04);
+      transition: box-shadow .4s, border-color .4s;
+      position: relative;
+    }
+    .device-mobile:hover .phone-frame {
+      box-shadow: 0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 1px rgba(232,192,122,0.18);
+      border-color: rgba(232,192,122,0.25);
+    }
+    .phone-notch {
+      height: 28px; background: #111318;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 2; flex-shrink: 0;
+    }
+    .phone-notch-pill {
+      width: 72px; height: 12px; background: #0d1017; border-radius: 8px;
+    }
+    .phone-screen {
+      width: 100%; aspect-ratio: 9/19; overflow: hidden; display: block;
+      background: #0d1017;
+    }
+    .phone-screen img {
+      width: 100%; height: 100%; object-fit: cover; object-position: top center;
+      display: block; transition: transform .6s cubic-bezier(.4,0,.2,1);
+    }
+    .device-mobile:hover .phone-screen img { transform: scale(1.03); }
+    .phone-home {
+      height: 24px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .phone-home-bar {
+      width: 52px; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.18);
+    }
+
+    @media (max-width: 900px) {
+      .gallery-row { flex-direction: column; }
+      .device-mobile { width: 100%; max-width: 220px; margin: 0 auto; }
+    }
+    @media (max-width: 560px) {
+      .device-mobile { width: 180px; }
+    }
+
+    /* old classes kept for compatibility */
+    .gallery-grid { display: none; }
+    .gallery-item { display: none; }
+    .gallery-caption { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+    .gallery-sub { font-size: 12px; color: var(--text-dim); }
+    /* PROCESS */
+    #process { background: var(--bg2); }
+    .process-timeline { position: relative; margin-top: 64px; padding-left: 40px; }
+    .process-timeline::before { content:''; position:absolute; left:7px; top:0; bottom:0; width:1px; background:linear-gradient(to bottom, transparent, var(--border) 10%, var(--border) 90%, transparent); }
+    .process-step { position: relative; padding-bottom: 56px; }
+    .process-step:last-child { padding-bottom: 0; }
+    .process-dot { position: absolute; left: -36px; top: 4px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg2); transition: all .3s; }
+    .process-step:hover .process-dot { background: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+    .process-num { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+    .process-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; margin-bottom: 10px; }
+    .process-body { font-size: 15px; color: var(--text-muted); line-height: 1.8; font-weight: 300; max-width: 600px; }
+    .process-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .ptag { padding: 3px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 100px; font-size: 11px; color: var(--text-dim); font-weight: 500; }
+
+    /* TECH */
+    #tech { background: var(--bg); }
+    .tech-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 48px; }
+    .tech-item { padding: 24px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; text-align: center; transition: all .3s cubic-bezier(.4,0,.2,1); cursor: default; display: flex; flex-direction: column; align-items: center; }
+    .tech-item:hover { background: var(--surface-hover); border-color: rgba(232,192,122,0.25); transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,192,122,0.1); }
+    .tech-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--accent); margin: 0 auto 10px auto; }
+    .tech-label { font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+    .tech-sub { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+    /* RESULTS */
+    #results { background: var(--bg2); }
+    .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px; }
+    .result-card { padding: 36px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; text-align: center; transition: all .4s; position: relative; overflow: hidden; }
+    .result-card::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 70%); opacity:0; transition:opacity .4s; }
+    .result-card:hover { background: var(--surface-hover); border-color: rgba(232,192,122,0.2); transform: translateY(-6px); box-shadow: 0 16px 48px rgba(0,0,0,0.4); }
+    .result-card:hover::before { opacity: 1; }
+    .result-num { font-family: var(--font-display); font-size: 52px; font-weight: 800; letter-spacing: -0.04em; color: var(--text); line-height: 1; position: relative; }
+    .result-num span { color: var(--accent); }
+    .result-label { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-top: 8px; letter-spacing: 0.02em; position: relative; }
+    .result-desc { font-size: 12px; color: var(--text-dim); margin-top: 6px; position: relative; }
+
+    /* NEXT */
+    #next { background: var(--bg); }
+    .next-inner { margin-top: 56px; }
+    .next-label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 20px; }
+    .next-card { display: grid; grid-template-columns: 1.2fr 1fr; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; transition: all .4s cubic-bezier(.4,0,.2,1); text-decoration: none; background: var(--surface); transform-style: preserve-3d; }
+    .next-card:hover { border-color: rgba(232,192,122,0.25); background: var(--surface-hover); transform: perspective(1200px) translateY(-8px); box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,192,122,0.1); }
+    .next-card-content { padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
+    .next-card-top { }
+    .next-card-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--accent-glow); border: 1px solid rgba(232,192,122,0.25); border-radius: 100px; font-size: 10px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+    .next-card-title { font-family: var(--font-display); font-size: clamp(22px,3.5vw,36px); font-weight: 800; color: var(--text); letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 12px; }
+    .next-card-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; font-weight: 300; }
+    .next-card-bottom { margin-top: 32px; display: flex; align-items: center; justify-content: space-between; }
+    .next-card-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ntag { padding: 4px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 100px; font-size: 11px; color: var(--text-dim); }
+    .ntags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .next-arrow { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; transition: gap .2s; }
+    .next-card:hover .next-arrow { gap: 14px; }
+    .next-card-visual { display: flex; align-items: center; justify-content: center; font-size: 80px; position: relative; overflow: hidden; min-height: 240px; }
+    .next-card-visual-emoji { transition: transform .5s cubic-bezier(.4,0,.2,1); }
+    .next-card:hover .next-card-visual-emoji { transform: scale(1.1) rotate(-5deg); }
+    .next-card-emoji { transition: transform .5s cubic-bezier(.4,0,.2,1); }
+    .next-card:hover .next-card-emoji { transform: scale(1.1) rotate(-5deg); }
+    .next-card-img { max-width: 80%; height: auto; object-fit: contain; transition: transform .5s cubic-bezier(.4,0,.2,1); }
+    .next-card:hover .next-card-img { transform: scale(1.1); }
+
+    /* CTA */
+    #cta { background: var(--bg2); }
+    .cta-inner { text-align: center; max-width: 600px; margin: 0 auto; }
+    .cta-title { font-family: var(--font-display); font-size: clamp(28px,5vw,52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--text); margin-bottom: 16px; }
+    .cta-title span { background: linear-gradient(90deg, var(--accent) 0%, #f0d89a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .cta-desc { font-size: 17px; color: var(--text-muted); line-height: 1.7; font-weight: 300; margin-bottom: 40px; }
+    .cta-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { display: inline-flex; align-items: center; gap: 10px; padding: 14px 30px; background: var(--accent); color: #080a0f; font-family: var(--font-body); font-size: 14px; font-weight: 600; letter-spacing: 0.01em; border-radius: 8px; border: none; cursor: pointer; text-decoration: none; transition: all .3s cubic-bezier(.4,0,.2,1); position: relative; overflow: hidden; }
+    .btn-primary::before { content:''; position:absolute; inset:0; background:rgba(255,255,255,0.15); opacity:0; transition:opacity .3s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow-strong); }
+    .btn-primary:hover::before { opacity: 1; }
+    .btn-secondary { display: inline-flex; align-items: center; gap: 10px; padding: 14px 30px; background: transparent; color: var(--text); font-family: var(--font-body); font-size: 14px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-hover); cursor: pointer; text-decoration: none; transition: all .3s; }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); transform: translateY(-2px); }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 40px clamp(24px,5vw,80px); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+    .footer-logo { font-family: var(--font-display); font-size: 18px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); text-decoration: none; }
+    .footer-logo span { color: var(--accent); }
+    .footer-copy { font-size: 13px; color: var(--text-dim); }
+    .footer-socials { display: flex; gap: 12px; }
+    .social-btn { width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 16px; transition: all .3s; }
+    .social-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); transform: translateY(-2px); }
+
+    /* BACK TO TOP */
+    #btt { position: fixed; bottom: 32px; right: 32px; width: 44px; height: 44px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 18px; transition: all .3s; opacity: 0; pointer-events: none; z-index: 100; transform: translateY(10px); }
+    #btt.visible { opacity: 1; pointer-events: all; transform: translateY(0); }
+    #btt:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+    /* SCROLLBAR & SELECTION */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(232,192,122,0.2); border-radius: 2px; }
+    ::selection { background: rgba(232,192,122,0.2); color: var(--text); }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .overview-grid { grid-template-columns: 1fr; gap: 48px; }
+      .cs-grid { grid-template-columns: 1fr; }
+      .gallery-grid { grid-template-columns: 1fr; }
+      .gallery-item.tall { grid-row: span 1; }
+      .gallery-item.wide { grid-column: span 1; }
+      .tech-grid { grid-template-columns: repeat(4, 1fr); }
+      .results-grid { grid-template-columns: 1fr 1fr; }
+      .next-card { grid-template-columns: 1fr; }
+      .next-card-visual { min-height: 160px; }
+    }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+      .gallery-grid { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: repeat(3, 1fr); }
+      .results-grid { grid-template-columns: 1fr; }
+      .stat-row { grid-template-columns: 1fr; }
+      .hero-meta { gap: 24px; }
+      footer { flex-direction: column; align-items: flex-start; }
+      /* pbar: icon-only on mobile */
+      .pbar-btn span { display: none; }
+      .pbar-btn { padding: 7px 9px; gap: 0; }
+      .pbar-btn svg { width: 16px; height: 16px; }
+      .pbar-name { display: none; }
+      .pbar-divider { display: none; }
+      .pbar-right { display: none; }
+    }
+    @media (max-width: 480px) {
+    }
+  
+    /* ── LANG SWITCHER ── */
+    .lang-switcher { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+    .nav-center { display: flex; flex: 1; align-items: center; justify-content: center; gap: 40px; }
+    .lang-btn { background: none; border: none; font-family: var(--font-body); font-size: 11px; font-weight: 700; color: var(--text-dim); cursor: pointer; letter-spacing: 0.08em; padding: 5px 9px; border-radius: 4px; transition: all .2s; text-transform: uppercase; }
+    .lang-btn.active { color: var(--accent); background: var(--accent-glow); }
+    .lang-btn:hover:not(.active) { color: var(--text-muted); }
+    .lang-sep { color: var(--border); font-size: 11px; user-select: none; }
+
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div id="mouse-glow"></div>
+
+<div id="preloader">
+  <div class="preloader-logo">MT<span>.</span></div>
+  <div class="preloader-bar-wrap"><div class="preloader-bar"></div></div>
+</div>
+
+<nav id="navbar">
+  <a href="index.html" class="nav-logo"><img src="assets/img/LogoOrange.png" alt="MT Logo" class="nav-logo-img"></a>
+  <div class="nav-center">
+    <ul class="nav-links">
+    <li><a href="index.html#about" data-i18n="nav.about">About</a></li>
+    <li><a href="index.html#projects" data-i18n="nav.projects">Projects</a></li>
+    <li><a href="index.html#skills" data-i18n="nav.skills">Skills</a></li>
+    <li><a href="index.html#contact" data-i18n="nav.contact">Contact</a></li>
+  </ul>
+    <div class="lang-switcher" id="lang-switcher"><button class="lang-btn" data-lang="en">EN</button><span class="lang-sep">|</span><button class="lang-btn" data-lang="tr">TR</button></div>
+  </div>
+  <button class="hamburger" id="hamburger" aria-label="Open menu"><span></span><span></span><span></span></button>
+</nav>
+
+<!-- STICKY PROJECT BAR -->
+<div id="project-bar">
+  <div class="pbar-left">
+    <img src="assets/img/2048.png" alt="2048 logo" class="pbar-logo" onerror="this.style.display='none'">
+    <span class="pbar-divider"></span>
+    <span class="pbar-name">2048</span>
+  </div>
+  <div class="pbar-nav-wrap">
+    <nav class="pbar-nav">
+      <a href="#overview"  class="pbar-btn" data-section="overview">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="11" width="8" height="9" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/></svg>
+        <span data-i18n="pbar.overview">Overview</span>
+      </a>
+      <a href="#gallery"   class="pbar-btn" data-section="gallery">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span data-i18n="pbar.gallery">Gallery</span>
+      </a>
+      <a href="#challenge" class="pbar-btn" data-section="challenge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span data-i18n="pbar.challenge">Challenge</span>
+      </a>
+      <a href="#process"   class="pbar-btn" data-section="process">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M9 11l3 3L22 4"/></svg>
+        <span data-i18n="pbar.process">Process</span>
+      </a>
+      <a href="#results"   class="pbar-btn" data-section="results">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-5 3 3 4-6"/></svg>
+        <span data-i18n="pbar.results">Results</span>
+      </a>
+    </nav>
+  </div>
+  <!-- Mirror of pbar-left for true centering (hidden) -->
+  <div class="pbar-right" aria-hidden="true">
+    <span class="pbar-logo"></span>
+    <span class="pbar-divider"></span>
+    <span class="pbar-name">2048</span>
+  </div>
+</div>
+
+<!-- Mobile Nav Overlay -->
+<div class="mob-overlay" id="mob-overlay"></div>
+
+<!-- Mobile Nav Panel -->
+<div class="mobile-nav" id="mobile-nav">
+  <!-- Header -->
+  <div class="mob-header">
+    <a href="index.html" class="mob-logo">MT<span>.</span></a>
+    <button class="mob-close" id="mobile-close" aria-label="Close menu">
+      <div class="mob-close-line"></div>
+      <div class="mob-close-line"></div>
+    </button>
+  </div>
+
+  <!-- Links -->
+  <nav class="mob-links">
+    <a href="index.html#about"    class="mob-link-item mobile-link">
+      <span class="mob-link-num">01</span>
+      <span class="mob-link-label" data-i18n="nav.about">About</span>
+      <span class="mob-link-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+    </a>
+    <a href="index.html#projects" class="mob-link-item mobile-link">
+      <span class="mob-link-num">02</span>
+      <span class="mob-link-label" data-i18n="nav.projects">Projects</span>
+      <span class="mob-link-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+    </a>
+    <a href="index.html#skills"   class="mob-link-item mobile-link">
+      <span class="mob-link-num">03</span>
+      <span class="mob-link-label" data-i18n="nav.skills">Skills</span>
+      <span class="mob-link-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+    </a>
+    <a href="index.html#contact"  class="mob-link-item mobile-link">
+      <span class="mob-link-num">04</span>
+      <span class="mob-link-label" data-i18n="nav.contact">Contact</span>
+      <span class="mob-link-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+    </a>
+    <a href="index.html#"         class="mob-link-item mobile-link">
+      <span class="mob-link-num">05</span>
+      <span class="mob-link-label" data-i18n="nav.cv">Download CV</span>
+      <span class="mob-link-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+    </a>
+  </nav>
+
+  <!-- Panel Footer -->
+  <div class="mob-footer">
+    <div class="mob-footer-top">
+      <div class="mob-socials">
+        <a href="https://github.com/MteeahN" class="mob-social-btn" title="GitHub">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/in/metehantabak/" class="mob-social-btn" title="LinkedIn">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        </a>
+        <a href="https://x.com/MeteVeyn" class="mob-social-btn" title="Twitter / X">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+      </div>
+      <div class="mob-lang">
+        <button class="lang-btn" data-lang="en">EN</button>
+        <span class="lang-sep">|</span>
+        <button class="lang-btn" data-lang="tr">TR</button>
+      </div>
+    </div>
+    <div class="mob-status">
+      <span class="mob-status-dot"></span>
+      <span data-i18n="hero.badge">Available for new projects</span>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+
+  <div class="hero-art"></div>
+  <div class="hero-noise"></div>
+  <div class="hero-grid"></div>
+
+  <!-- Content strip -->
+  <div class="hero-content">
+    <div class="hero-text">
+      <div class="hero-breadcrumb">
+        <a href="index.html" data-i18n="breadcrumb.home">Home</a>
+        <span class="hero-breadcrumb-sep">›</span>
+        <a href="index.html#projects" data-i18n="breadcrumb.projects">Projects</a>
+        <span class="hero-breadcrumb-sep">›</span>
+        <span>2048</span>
+      </div>
+      <div class="hero-tags">
+        <span class="hero-tag" data-i18n="hero.tag1">Game</span>
+        <span class="hero-tag" data-i18n="hero.tag2">Unity</span>
+        <span class="hero-tag" data-i18n="hero.tag3">Puzzle</span>
+      </div>
+      <h1 class="hero-title"><span>2048</span></h1>
+      <p class="hero-desc" data-i18n="hero.desc">A minimalist number puzzle built around clarity, logic, and flow. Smooth tile merges, responsive controls, and a clean visual style transform simple mechanics into a satisfying experience where strategy, foresight, and precision matter more than speed.</p>
+      <div class="hero-meta">
+        <div class="meta-item"><div class="meta-label" data-i18n="meta.year">Year</div><div class="meta-value">2026</div></div>
+        <div class="meta-item"><div class="meta-label" data-i18n="meta.platform">Platform</div><div class="meta-value">PC</div></div>
+        <div class="meta-item"><div class="meta-label" data-i18n="meta.role">Role</div><div class="meta-value">Lead Dev &amp; Designer</div></div>
+        <div class="meta-item"><div class="meta-label" data-i18n="meta.duration">Duration</div><div class="meta-value">2 Weeks</div></div>
+      </div>
+    </div>
+
+    <img
+      id="heroLogoImg"
+      src="assets/img/2048.png"
+      alt="2048 Logo"
+      onerror="this.style.display='none'"
+    >
+  </div>
+  <div class="hero-scroll"><span data-i18n="scroll.hint">Scroll to explore</span> <div class="scroll-line"></div></div>
+
+</section>
+
+<div class="section-divider"></div>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="section-wrap">
+    <div class="overview-grid">
+      <div>
+        <div class="section-label reveal" data-i18n="label.overview">Project Overview</div>
+        <h2 class="section-title reveal reveal-delay-1" data-i18n="overview.title">A game about thinking before acting.</h2>
+        <div class="overview-body reveal reveal-delay-2">
+          <p data-i18n="overview.body">This 2048 project is a <strong>fully custom-built puzzle game</strong> developed in Unity, where the entire grid system and merge logic were implemented from scratch without using templates. The focus was on building a <strong>clean, deterministic 4x4 grid architecture</strong> that ensures accurate movement, controlled tile merging, and consistent game state behavior.</p>
+          <p data-i18n="overview.body2">Special attention was given to bug-free merge handling, responsive input controls, and smooth tile animations to create a satisfying user experience. With a modular C# structure and performance-conscious design, the project delivers a lightweight yet polished and scalable puzzle implementation.</p>
+        </div>
+      </div>
+      <div class="overview-stats reveal reveal-delay-2">
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-card-num"><span id="s1">0</span></div><div class="stat-card-label" data-i18n="stat.tiles">Unique Tiles</div></div>
+          <div class="stat-card"><div class="stat-card-num"><span id="s2">0</span></div><div class="stat-card-label" data-i18n="stat.special">Special Tiles</div></div>
+          <div class="stat-card"><div class="stat-card-num"><span id="s3">0</span>%</div><div class="stat-card-label" data-i18n="stat.rating">Positive Rating</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- GALLERY -->
+<section id="gallery">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.gallery">Visual Showcase</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="gallery.title">Worlds painted in light and moss.</h2>
+        <div class="gallery-showcase reveal reveal-delay-2">
+
+      <!-- Row 1: Hero desktop screenshot -->
+      <div class="gallery-row">
+        <div class="device-desktop">
+          <div class="device-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <p data-i18n="gallery.desktop">Masaüstü · Mid Game</p>
+          </div>
+          <div class="browser-frame">
+            <div class="browser-bar">
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-url">
+                <svg class="browser-url-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span class="browser-url-text"></span>
+              </div>
+            </div>
+            <div class="browser-screen">
+              <img src="assets/img/2048 Mid Game.png" alt="2048 — Mid Game" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Second desktop + mobile -->
+      <div class="gallery-row" style="align-items: flex-start;">
+        <div class="device-desktop" style="flex: 1.35;">
+          <div class="device-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <p data-i18n="gallery.laptop">Laptop · Game Start</p>
+          </div>
+          <div class="browser-frame">
+            <div class="browser-bar">
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-url">
+                <svg class="browser-url-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span class="browser-url-text"></span>
+              </div>
+            </div>
+            <div class="browser-screen">
+              <img src="assets/img/2048 Start.png" alt="2048 — Game Start" loading="lazy">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; align-self:stretch;">
+          <div class="device-mobile">
+            <div class="device-label" style="justify-content:center;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 18h.01"/></svg>
+              <p data-i18n="gallery.mobile">Mobile · Game Over</p>
+            </div>
+            <div class="phone-frame">
+              <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+              <div class="phone-screen">
+                <img src="assets/img/2048 GameOver.png" alt="Mobil — Game Over" loading="lazy">
+              </div>
+              <div class="phone-home"><div class="phone-home-bar"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- CHALLENGE -->
+<section id="challenge">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.challenge">Problem &amp; Solution</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="challenge.heading">Communicating everything without words.</h2>
+    <div class="cs-grid">
+      <div class="cs-card reveal reveal-delay-1">
+        <div class="cs-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="cs-title" data-i18n="challenge.title">The Challenge</div>
+        <div class="cs-body" data-i18n="challenge.body">The main challenge was translating simple gameplay rules into a robust and bug-free system that remains responsive and visually satisfying.</div>
+        <div class="cs-list" data-i18n-html="challenge.list">
+          <div class="cs-item">Rebuilding 2048 mechanics without relying on templates</div>
+          <div class="cs-item">Implementing accurate grid-based movement logic</div>
+          <div class="cs-item">Handling tile merging without duplication errors</div>
+          <div class="cs-item">Ensuring smooth animations without performance drops</div>
+          <div class="cs-item">Designing a minimal yet modern UI</div>
+          <div class="cs-item">Maintaining clean, scalable code architecture</div>
+        </div>
+      </div>
+      <div class="cs-card reveal reveal-delay-2">
+        <div class="cs-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <div class="cs-title" data-i18n="solution.title">The Solution</div>
+        <div class="cs-body" data-i18n="solution.body">The result is a stable, polished, and scalable 2048 experience built entirely with custom logic.</div>
+        <div class="cs-list" data-i18n-html="solution.list">
+          <div class="cs-item">Built a custom 4x4 grid management system</div>
+          <div class="cs-item">Implemented directional swipe and keyboard input handling</div>
+          <div class="cs-item">Developed a controlled tile merging algorithm with state validation</div>
+          <div class="cs-item">Added smooth scaling and movement animations</div>
+          <div class="cs-item">Designed a clean, minimal UI with dynamic score tracking</div>
+          <div class="cs-item">Structured the project using modular scripts for maintainability</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- PROCESS -->
+<section id="process">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.process">Development Journey</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="process.title">2 weeks of coding and testing</h2>
+    <div class="process-timeline">
+      <div class="process-step reveal">
+        <div class="process-dot"></div>
+        <div class="process-num" data-i18n="phase.num.01">Phase 01</div>
+        <div class="process-title" data-i18n="p01.title">Core Grid Logic</div>
+        <div class="process-body" data-i18n="p01.body">The first phase focused on implementing the fundamental 4x4 grid system and movement mechanics. Tile spawning logic, directional input handling, and basic merging behavior were developed and tested to ensure accurate game rules and consistent behavior across all moves.</div>
+        <div class="process-tags" data-i18n-html="p01.tags"><span class="ptag">Grid System</span><span class="ptag">Movement Logic</span><span class="ptag">Merge Algorithm</span></div>
+      </div>
+      <div class="process-step reveal reveal-delay-1">
+        <div class="process-dot"></div>
+        <div class="process-num" data-i18n="phase.num.02">Phase 02</div>
+        <div class="process-title" data-i18n="p02.title">Gameplay Systems & Polish</div>
+        <div class="process-body" data-i18n="p02.body">Once the core logic was stable, scoring, win/lose detection, and restart systems were implemented. Smooth tile movement animations and scale effects were added to enhance user feedback and game feel.</div>
+        <div class="process-tags" data-i18n-html="p02.tags"><span class="ptag">Score System</span><span class="ptag">Game State Control</span><span class="ptag">Animation Polish</span></div>
+      </div>
+      <div class="process-step reveal reveal-delay-2">
+        <div class="process-dot"></div>
+        <div class="process-num" data-i18n="phase.num.03">Phase 03</div>
+        <div class="process-title" data-i18n="p03.title">UI & Optimization</div>
+        <div class="process-body" data-i18n="p03.body">The final phase focused on UI refinement, performance optimization, and clean architecture structuring. The interface was redesigned for clarity and responsiveness, and unnecessary update calls were optimized to maintain smooth performance even on lower-end hardware.</div>
+        <div class="process-tags" data-i18n-html="p03.tags"><span class="ptag">UI Design</span><span class="ptag">Performance Optimization</span><span class="ptag">Code Refactoring</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- TECH STACK -->
+<section id="tech">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.tech">Technology Stack</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="tech.title">Nature built with modern tech.</h2>
+    <div class="tech-grid reveal reveal-delay-2">
+      <div class="tech-item"><div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><polygon points="12,2 22,8 22,16 12,22 2,16 2,8"/><path d="M9 8h3.5a2.5 2.5 0 0 1 0 5H9V8z"/><path d="M9 13l4 5"/></svg></div><div class="tech-label">Unity</div><div class="tech-sub">Engine</div></div>
+      <div class="tech-item"><div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div><div class="tech-label">C#</div><div class="tech-sub">Language</div></div>
+      <div class="tech-item"><div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><circle cx="12" cy="12" r="3"/><path d="M12 9V3M15.5 10.5L20 7M15.5 13.5L20 17M12 15v6M8.5 13.5L4 17M8.5 10.5L4 7"/></svg></div><div class="tech-label">Custom Grid Algorithm</div><div class="tech-sub">Game Logic</div></div>
+      <div class="tech-item"><div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect x="8.5" y="2" width="7" height="6" rx="2"/><rect x="8.5" y="9" width="7" height="6" rx="2"/><path d="M8.5 12h-1a3 3 0 0 0 0 6h1v-6z"/><circle cx="15.5" cy="15" r="3"/></svg></div><div class="tech-label">Aseprite</div><div class="tech-sub">Texturing</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.results">Outcomes</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="results.title">Numbers that highlight technical precision and gameplay quality.</h2>
+    <div class="results-grid">
+      <div class="result-card reveal"><div class="result-num"><span id="r1">0</span>fps</div><div class="result-label"><span data-i18n="r1.label">Stable Performance</span></div><div class="result-desc" data-i18n="r1.desc">Maintained on mid-range hardware</div></div>
+      <div class="result-card reveal reveal-delay-1"><div class="result-num"><span id="r2">0</span>+</div><div class="result-label"><span data-i18n="r2.label">Tested Game Runs</span></div><div class="result-desc" data-i18n="r2.desc">To validate merge consistency and state logic</div></div>
+      <div class="result-card reveal reveal-delay-2"><div class="result-num"><span id="r3">0</span>ms</div><div class="result-label"><span data-i18n="r3.label">Average Move Processing Time</span></div><div class="result-desc" data-i18n="r3.desc">Efficient grid calculation logic</div></div>
+      <div class="result-card reveal reveal-delay-3"><div class="result-num"><span id="r4">0</span></div><div class="result-label"><span data-i18n="r4.label">Directional Input Systems</span></div><div class="result-desc" data-i18n="r4.desc">Up · Down · Left · Right movement handling</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- NEXT PROJECT -->
+<section id="next">
+  <div class="section-wrap">
+    <div class="section-label reveal" data-i18n="label.next">Continue Exploring</div>
+    <h2 class="section-title reveal reveal-delay-1" data-i18n="next.title">Next up.</h2>
+    <div class="next-inner reveal reveal-delay-2">
+      <div class="next-label" data-i18n="next.label">Next Project</div>
+      <a href="YonderMarket.html" class="next-card">
+        <div class="next-card-content">
+          <div class="next-card-top">
+            <div class="next-card-badge">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+              Web / Windows App
+            </div>
+            <div class="next-card-title" data-i18n="next.card.title">Yonder Market</div>
+            <div class="next-card-desc" data-i18n="next.card.desc">A modern digital commerce platform where users can securely purchase and rent electronic games. Built on a strong backend infrastructure with secure authentication, it provides a fast, seamless, and reliable marketplace experience.</div>
+          </div>
+          <div class="next-card-bottom">
+            <div class="next-card-tags">
+              <span class="ntag">Unity Mobile</span>
+              <span class="ntag">Firebase</span>
+              <span class="ntag">Arcade</span>
+            </div>
+            <div class="next-arrow"><span data-i18n="btn.viewproject">View Project</span> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+          </div>
+        </div>
+        <div class="next-card-visual">
+          <img src="assets/img/YMLogo.png" alt="Yonder Market Project Logo" class="next-card-img" />
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="section-wrap">
+    <div class="cta-inner">
+      <div class="section-label reveal" style="justify-content:center" data-i18n="label.cta">Start a Project</div>
+      <h2 class="cta-title reveal reveal-delay-1" data-i18n-html="cta.title">Have an idea?<br><span>Let's build it.</span></h2>
+      <p class="cta-desc reveal reveal-delay-2" data-i18n="cta.desc">Whether it's a game concept, a web platform, or something that doesn't quite have a name yet — I'd love to hear about it.</p>
+      <div class="cta-btns reveal reveal-delay-3">
+        <a href="index.html#contact" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span data-i18n="btn.getintouch">Get In Touch</span>
+        </a>
+        <a href="index.html#projects" class="btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span data-i18n="btn.allprojects">All Projects</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="index.html" class="footer-logo">MT<span>.</span></a>
+  <div class="footer-copy" data-i18n="footer.copy">&#169; 2026 Metehan Tabak. Crafted with precision.</div>
+  <div class="footer-socials">
+    <a href="#" class="social-btn" title="GitHub"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg></a>
+    <a href="#" class="social-btn" title="LinkedIn"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></a>
+    <a href="#" class="social-btn" title="Twitter"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+  </div>
+</footer>
+
+<a href="#" id="btt" title="Back to top">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+</a>
+
+<script src="assets/js/MobileNav.js"></script>
+<script>
+  window.addEventListener('load', () => { setTimeout(() => document.getElementById('preloader').classList.add('hidden'), 1400); });
+  const cursor = document.getElementById('cursor'), cursorRing = document.getElementById('cursor-ring'), mouseGlow = document.getElementById('mouse-glow');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; cursor.style.left = mx + 'px'; cursor.style.top = my + 'px'; mouseGlow.style.left = mx + 'px'; mouseGlow.style.top = my + 'px'; });
+  (function animateRing() { rx += (mx - rx) * .12; ry += (my - ry) * .12; cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px'; requestAnimationFrame(animateRing); })();
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+    document.getElementById('btt').classList.toggle('visible', window.scrollY > 400);
+  });
+  document.getElementById('hamburger').addEventListener('click', () => document.getElementById('mobile-nav').classList.add('open'));
+  document.getElementById('mobile-close').addEventListener('click', () => document.getElementById('mobile-nav').classList.remove('open'));
+  document.querySelectorAll('.mobile-link').forEach(l => l.addEventListener('click', () => document.getElementById('mobile-nav').classList.remove('open')));
+
+  const revealObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+  function animateCount(el, target, suffix = '', duration = 1600) {
+    let start = null;
+    (function step(ts) { if (!start) start = ts; const p = Math.min((ts - start) / duration, 1), ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.floor(ease * target) + suffix; if (p < 1) requestAnimationFrame(step); else el.textContent = target + suffix; })(performance.now());
+  }
+
+  const statsObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) {
+      animateCount(document.getElementById('s1'), 17);
+      animateCount(document.getElementById('s2'), 2);
+      animateCount(document.getElementById('s3'), 97);
+      statsObs.disconnect();
+    }});
+  }, { threshold: 0.5 });
+  const ov = document.getElementById('overview'); if (ov) statsObs.observe(ov);
+
+  const resultObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) {
+      animateCount(document.getElementById('r1'), 60);
+      animateCount(document.getElementById('r2'), 150);
+      animateCount(document.getElementById('r3'), 1);
+      animateCount(document.getElementById('r4'), 4);
+      resultObs.disconnect();
+    }});
+  }, { threshold: 0.3 });
+  const res = document.getElementById('results'); if (res) resultObs.observe(res);
+
+  document.querySelectorAll('.gallery-item, .next-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const rect = card.getBoundingClientRect(), x = (e.clientX - rect.left) / rect.width - .5, y = (e.clientY - rect.top) / rect.height - .5;
+      card.style.transform = `perspective(1200px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg) translateY(-6px)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+  });
+
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => { const t = document.querySelector(a.getAttribute('href')); if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth' }); } });
+  });
+
+  // ── STICKY PROJECT BAR ──
+  (function() {
+    const bar      = document.getElementById('project-bar');
+    const hero     = document.getElementById('hero');
+    const sections = ['overview','gallery','challenge','process','results']
+      .map(id => document.getElementById(id)).filter(Boolean);
+    if (!bar || !hero) return;
+
+    // Bar'ı hero bitince göster
+    new IntersectionObserver(([entry]) => {
+      bar.classList.toggle('visible', !entry.isIntersecting);
+    }, { threshold: 0.05 }).observe(hero);
+
+    // Scroll progress
+    function updateProgress() {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(window.scrollY / docHeight * 100, 100) : 0;
+      bar.style.setProperty('--scroll-pct', pct + '%');
+    }
+    window.addEventListener('scroll', updateProgress, { passive: true });
+
+    // Scrollspy — sadece bir buton aktif
+    const btns = bar.querySelectorAll('[data-section]');
+    const secObs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const btn = bar.querySelector('[data-section="' + entry.target.id + '"]');
+        if (!btn) return;
+        if (entry.isIntersecting) {
+          btns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-25% 0px -65% 0px' });
+    sections.forEach(s => secObs.observe(s));
+
+    // Smooth scroll — sticky offset hesaba katılıyor (nav 72px + pbar 52px)
+    bar.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (!target) return;
+        e.preventDefault();
+        const top = target.getBoundingClientRect().top + window.scrollY - (72 + 52 + 8);
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+  })();
+
+  // ── HERO LOGO: fade-in + parallax ──
+  (function() {
+    const img     = document.getElementById('heroLogoImg');
+    const heroSec = document.getElementById('hero');
+    if (!img || !heroSec) return;
+
+    // fade in once image is ready
+    const reveal = () => img.classList.add('loaded');
+    if (img.complete && img.naturalWidth) reveal();
+    else img.addEventListener('load', reveal);
+
+    // parallax: logo scroll ile aşağı kayar
+    function onScroll() {
+      const scrollY  = window.scrollY;
+      const heroH    = heroSec.offsetHeight || 1;
+      const progress = Math.min(scrollY / heroH, 1);
+      const drift    = progress * 220;
+      const opacity  = 0.7 * (1 - progress * 0.7);
+      img.style.transform = 'translateY(' + drift + 'px)';
+      if (img.classList.contains('loaded')) img.style.opacity = opacity;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+
+<script>
+(function() {
+  var T = {
+  "en": {
+    "nav.about": "About",
+    "nav.projects": "Projects",
+    "nav.skills": "Skills",
+    "nav.contact": "Contact",
+    "nav.cv": "Download CV",
+    "nav.back": "Back",
+    "mobile.about": "About",
+    "mobile.projects": "Projects",
+    "mobile.skills": "Skills",
+    "mobile.contact": "Contact",
+    "breadcrumb.home": "Home",
+    "breadcrumb.projects": "Projects",
+    "label.overview": "Project Overview",
+    "label.gallery": "Visual Showcase",
+    "label.challenge": "Problem & Solution",
+    "label.process": "Development Journey",
+    "label.tech": "Technology Stack",
+    "label.results": "Outcomes",
+    "label.next": "Continue Exploring",
+    "label.cta": "Start a Project",
+    "label.expertise": "Expertise",
+    "label.selectedwork": "Selected Work",
+    "label.getintouch": "Get In Touch",
+    "pbar.overview": "Project Overview",
+    "pbar.gallery": "Visual Showcase",
+    "pbar.challenge": "Problem & Solution",
+    "pbar.process": "Development Journey",
+    "pbar.results": "Outcomes",
+    "scroll.hint": "Scroll to explore",
+    "footer.copy": "© 2026 Metehan Tabak. Crafted with precision.",
+    "cta.title": "Have an idea?<br><span>Let's build it.</span>",
+    "cta.desc": "Whether it's a game concept, a web platform, or something that doesn't quite have a name yet — I'd love to hear about it.",
+    "meta.year": "Year",
+    "meta.platform": "Platform",
+    "meta.role": "Role",
+    "meta.duration": "Duration",
+    "next.label": "Next Project",
+    "next.label.featured": "Featured Project",
+    "btn.viewproject": "View Project",
+    "btn.getintouch": "Get In Touch",
+    "btn.viewall": "View All Projects",
+    "challenge.title": "The Challenge",
+    "solution.title": "The Solution",
+    "phase.num.01": "Phase 01",
+    "phase.num.02": "Phase 02",
+    "phase.num.03": "Phase 03",
+    "phase.num.04": "Phase 04",
+    "hero.tag1": "Game",
+    "hero.tag2": "Unity",
+    "hero.tag3": "Puzzle",
+    "page.title": "2048 — Metehan Tabak",
+    "hero.desc": "A minimalist number puzzle built around clarity, logic, and flow. Smooth tile merges, responsive controls, and a clean visual style transform simple mechanics into a satisfying experience where strategy, foresight, and precision matter more than speed.",
+    "overview.title": "A game about thinking before acting.",
+    "gallery.title": "Worlds painted in light and moss.",
+    "challenge.heading": "Recreating a classic without the shortcuts.",
+    "challenge.list": "<div class=\"cs-item\">Rebuilding 2048 mechanics without relying on templates</div><div class=\"cs-item\">Implementing accurate grid-based movement logic</div><div class=\"cs-item\">Handling tile merging without duplication errors</div><div class=\"cs-item\">Ensuring smooth animations without performance drops</div><div class=\"cs-item\">Designing a minimal yet modern UI</div><div class=\"cs-item\">Maintaining clean, scalable code architecture</div>",
+    "solution.list": "<div class=\"cs-item\">Built a custom 4x4 grid management system</div><div class=\"cs-item\">Implemented directional swipe and keyboard input handling</div><div class=\"cs-item\">Developed a controlled tile merging algorithm with state validation</div><div class=\"cs-item\">Added smooth scaling and movement animations</div><div class=\"cs-item\">Designed a clean, minimal UI with dynamic score tracking</div><div class=\"cs-item\">Structured the project using modular scripts for maintainability</div>",
+    "stat.tiles": "Unique Tiles",
+    "stat.special": "Special Tiles",
+    "stat.rating": "Positive Rating",
+    "process.title": "2 weeks of coding and testing",
+    "p01.title": "Core Grid Logic",
+    "p01.body": "The first phase focused on implementing the fundamental 4x4 grid system and movement mechanics. Tile spawning logic, directional input handling, and basic merging behavior were developed and tested to ensure accurate game rules and consistent behavior across all moves.",
+    "p01.tags": "<span class=\"ptag\">Grid System</span><span class=\"ptag\">Movement Logic</span><span class=\"ptag\">Merge Algorithm</span>",
+    "p02.title": "Gameplay Systems & Polish",
+    "p02.body": "Once the core logic was stable, scoring, win/lose detection, and restart systems were implemented. Smooth tile movement animations and scale effects were added to enhance user feedback and game feel.",
+    "p02.tags": "<span class=\"ptag\">Score System</span><span class=\"ptag\">Game State Control</span><span class=\"ptag\">Animation Polish</span>",
+    "p03.title": "UI & Optimization",
+    "p03.body": "The final phase focused on UI refinement, performance optimization, and clean architecture structuring. The interface was redesigned for clarity and responsiveness, and unnecessary update calls were optimized to maintain smooth performance even on lower-end hardware.",
+    "p03.tags": "<span class=\"ptag\">UI Design</span><span class=\"ptag\">Performance Optimization</span><span class=\"ptag\">Code Refactoring</span>",
+    "tech.title": "Nature built with modern tech.",
+    "results.title": "Numbers that highlight technical precision and gameplay quality.",
+    "r1.label": "Stable Performance",
+    "r1.desc": "Maintained on mid-range hardware",
+    "r2.label": "Tested Game Runs",
+    "r2.desc": "To validate merge consistency and state logic",
+    "r3.label": "Average Move Processing Time",
+    "r3.desc": "Efficient grid calculation logic",
+    "r4.label": "Directional Input Systems",
+    "r4.desc": "Up · Down · Left · Right movement handling",
+    "next.title": "Next up.",
+    "next.card.title": "Yonder Market",
+    "next.card.desc": "A modern digital commerce platform where users can securely purchase and rent electronic games. Built on a strong backend infrastructure with secure authentication, it provides a fast, seamless, and reliable marketplace experience.",
+    "btn.allprojects": "All Projects",
+    "challenge.heading": "Recreating a classic without the shortcuts.",
+    "challenge.body": "The main challenge was translating simple gameplay rules into a robust and bug-free system that remains responsive and visually satisfying.",
+    "solution.body": "The result is a stable, polished, and scalable 2048 experience built entirely with custom logic.",
+    "overview.body": "This 2048 project is a fully custom-built puzzle game developed in Unity, where the entire grid system and merge logic were implemented from scratch without using templates. The focus was on building a clean, deterministic 4x4 grid architecture that ensures accurate movement, controlled tile merging, and consistent game state behavior.",
+    "overview.body2": "Special attention was given to bug-free merge handling, responsive input controls, and smooth tile animations to create a satisfying user experience. With a modular C# structure and performance-conscious design, the project delivers a lightweight yet polished and scalable puzzle implementation.",
+    "gallery.cap1": "Ancient Forest Biome",
+    "gallery.sub1": "Hand-painted 2.5D environments",
+    "gallery.cap2": "Machinery Ruins",
+    "gallery.sub2": "Overgrown industrial structures",
+    "gallery.cap3": "Puzzle Mechanics",
+    "gallery.sub3": "Environmental language puzzles",
+    "gallery.cap4": "The Overgrown City",
+    "gallery.sub4": "Nature reclaiming a lost civilization"
+  },
+  "tr": {
+    "nav.about": "Hakkımda",
+    "nav.projects": "Projeler",
+    "nav.skills": "Yetenekler",
+    "nav.contact": "İletişim",
+    "nav.cv": "CV İndir",
+    "nav.back": "Geri",
+    "mobile.about": "Hakkımda",
+    "mobile.projects": "Projeler",
+    "mobile.skills": "Yetenekler",
+    "mobile.contact": "İletişim",
+    "breadcrumb.home": "Ana Sayfa",
+    "breadcrumb.projects": "Projeler",
+    "label.overview": "Proje Genel Bakışı",
+    "label.gallery": "Görsel Sergi",
+    "label.challenge": "Sorun & Çözüm",
+    "label.process": "Geliştirme Süreci",
+    "label.tech": "Teknoloji Yığını",
+    "label.results": "Sonuçlar",
+    "label.next": "Keşfetmeye Devam Et",
+    "label.cta": "Proje Başlat",
+    "label.expertise": "Uzmanlık",
+    "label.selectedwork": "Seçili Çalışmalar",
+    "label.getintouch": "İletişime Geç",
+    "pbar.overview": "Proje Genel Bakışı",
+    "pbar.gallery": "Görsel Sergi",
+    "pbar.challenge": "Sorun & Çözüm",
+    "pbar.process": "Geliştirme Süreci",
+    "pbar.results": "Sonuçlar",
+    "scroll.hint": "Keşfetmek için kaydır",
+    "footer.copy": "© 2026 Metehan Tabak. Titizlikle oluşturuldu.",
+    "cta.title": "Bir fikrin mi var?<br><span>Hadi inşa edelim.</span>",
+    "cta.desc": "İster bir oyun konsepti, ister bir web platformu, isterse henüz adı olmayan bir şey olsun — duymak isterim.",
+    "meta.year": "Yıl",
+    "meta.platform": "Platform",
+    "meta.role": "Rol",
+    "meta.duration": "Süre",
+    "next.label": "Sonraki Proje",
+    "next.label.featured": "Öne Çıkan Proje",
+    "btn.viewproject": "Projeyi Görüntüle",
+    "btn.getintouch": "İletişime Geç",
+    "btn.viewall": "Tüm Projeleri Gör",
+    "challenge.title": "Zorluk",
+    "solution.title": "Çözüm",
+    "phase.num.01": "Aşama 01",
+    "phase.num.02": "Aşama 02",
+    "phase.num.03": "Aşama 03",
+    "phase.num.04": "Aşama 04",
+    "hero.tag1": "Oyun",
+    "hero.tag2": "Unity",
+    "hero.tag3": "Puzzle",
+    "page.title": "2048 — Metehan Tabak",
+    "hero.desc": "Netlik, mantık ve akış üzerine kurulu minimalist bir sayı bulmacası. Akıcı karo birleşimleri, duyarlı kontroller ve sade görsel stil, basit mekanikleri hızdan çok strateji, öngörü ve hassasiyetin önemli olduğu tatmin edici bir deneyime dönüştürür.",
+    "overview.title": "Hareketten önce düşünme üzerine bir oyun.",
+    "gallery.title": "Işık ve yosunla boyanmış dünyalar.",
+    "challenge.heading": "Kısayollar olmadan klasiği yeniden yaratmak.",
+    "challenge.list": "<div class=\"cs-item\">2048 mekaniklerini şablonlara dayanmadan yeniden oluşturmak</div><div class=\"cs-item\">Doğru ızgara tabanlı hareket mantığını hayata geçirmek</div><div class=\"cs-item\">Çoğaltma hataları olmadan karo birleşimini yönetmek</div><div class=\"cs-item\">Performans düşmeden akıcı animasyonlar sağlamak</div><div class=\"cs-item\">Minimal ama modern bir kullanıcı arayüzü tasarlamak</div><div class=\"cs-item\">Temiz ve ölçeklenebilir kod mimarisini korumak</div>",
+    "solution.list": "<div class=\"cs-item\">Özel 4x4 ızgara yönetim sistemi oluşturuldu</div><div class=\"cs-item\">Yönlü kaydırma ve klavye giriş işleme hayata geçirildi</div><div class=\"cs-item\">Durum doğrulamalı kontrollü karo birleştirme algoritması geliştirildi</div><div class=\"cs-item\">Akıcı ölçekleme ve hareket animasyonları eklendi</div><div class=\"cs-item\">Dinamik skor takibi ile sade ve minimal kullanıcı arayüzü tasarlandı</div><div class=\"cs-item\">Sürdürülebilirlik için modüler betiklerle proje yapılandırıldı</div>",
+    "stat.tiles": "Benzersiz Karo",
+    "stat.special": "Özel Karo",
+    "stat.rating": "Olumlu Değerlendirme",
+    "process.title": "2 haftalık kodlama ve test",
+    "p01.title": "Temel Izgara Mantığı",
+    "p01.body": "İlk aşama, temel 4x4 ızgara sisteminin ve hareket mekaniklerinin uygulanmasına odaklandı. Karo üretme mantığı, yönlü giriş işleme ve temel birleştirme davranışı, doğru oyun kurallarını ve tüm hamleler boyunca tutarlı davranışı sağlamak amacıyla geliştirildi ve test edildi.",
+    "p01.tags": "<span class=\"ptag\">Izgara Sistemi</span><span class=\"ptag\">Hareket Mantığı</span><span class=\"ptag\">Birleştirme Algoritması</span>",
+    "p02.title": "Oyun Sistemleri & Cila",
+    "p02.body": "Temel mantık kararlı hale geldikten sonra puanlama, kazanma/kaybetme tespiti ve yeniden başlatma sistemleri hayata geçirildi. Kullanıcı geri bildirimini ve oyun hissini geliştirmek için akıcı karo hareket animasyonları ve ölçek efektleri eklendi.",
+    "p02.tags": "<span class=\"ptag\">Puan Sistemi</span><span class=\"ptag\">Oyun Durumu Kontrolü</span><span class=\"ptag\">Animasyon Cilası</span>",
+    "p03.title": "Arayüz & Optimizasyon",
+    "p03.body": "Son aşama arayüz iyileştirmesine, performans optimizasyonuna ve temiz mimari yapılandırmaya odaklandı. Arayüz netlik ve duyarlılık için yeniden tasarlandı; orta düzey donanımlarda bile akıcı performansı korumak amacıyla gereksiz güncelleme çağrıları optimize edildi.",
+    "p03.tags": "<span class=\"ptag\">Arayüz Tasarımı</span><span class=\"ptag\">Performans Optimizasyonu</span><span class=\"ptag\">Kod Yeniden Yapılandırması</span>",
+    "tech.title": "Modern teknolojiyle inşa edildi.",
+    "results.title": "Teknik hassasiyeti ve oynanabilirlik kalitesini öne çıkaran rakamlar.",
+    "r1.label": "Kararlı Performans",
+    "r1.desc": "Orta düzey donanımda sürdürüldü",
+    "r2.label": "Test Edilen Oyun Çalışması",
+    "r2.desc": "Birleştirme tutarlılığı ve durum mantığını doğrulamak için",
+    "r3.label": "Ortalama Hamle İşleme Süresi",
+    "r3.desc": "Verimli ızgara hesaplama mantığı",
+    "r4.label": "Yönlü Giriş Sistemi",
+    "r4.desc": "Yukarı · Aşağı · Sol · Sağ hareket işleme",
+    "next.title": "Sıradaki.",
+    "next.card.title": "Yonder Market",
+    "next.card.desc": "Elektronik oyunları güvenle satın alabileceğiniz ve kiralayabileceğiniz modern bir dijital ticaret platformudur. Güçlü altyapısı ve güvenli kullanıcı sistemi sayesinde hızlı, sorunsuz ve güvenilir bir alışveriş deneyimi sunar.",
+    "btn.allprojects": "Tüm Projeler",
+    "challenge.body": "Temel zorluk, basit oyun kurallarını duyarlı ve görsel açıdan tatmin edici kalan sağlam ve hatasız bir sisteme dönüştürmekti.",
+    "solution.body": "Sonuç, tamamen özel mantıkla inşa edilmiş kararlı, cilalanmış ve ölçeklenebilir bir 2048 deneyimidir.",
+    "overview.body": "Bu 2048 projesi, Unity'de geliştirilen ve şablon kullanılmadan sıfırdan hayata geçirilen, tam özel yapılı bir bulmaca oyunudur. Odak noktası, doğru hareketi, kontrollü karo birleşimini ve tutarlı oyun durumu davranışını sağlayan temiz ve deterministik 4x4 ızgara mimarisini oluşturmaktı.",
+    "overview.body2": "Tatmin edici bir kullanıcı deneyimi yaratmak için hatasız birleşim işleme, duyarlı giriş kontrollerine ve akıcı karo animasyonlarına özel önem verildi. Modüler C# yapısı ve performans bilinçli tasarımıyla proje, hafif ama cilalanmış ve ölçeklenebilir bir bulmaca uygulaması sunmaktadır.",
+    "gallery.cap1": "Antik Orman Biom'u",
+    "gallery.sub1": "El boyaması 2.5D ortamlar",
+    "gallery.cap2": "Makine Kalıntıları",
+    "gallery.sub2": "Doğanın sardığı endüstriyel yapılar",
+    "gallery.cap3": "Bulmaca Mekanikleri",
+    "gallery.sub3": "Çevresel dil bulmacaları",
+    "gallery.cap4": "Kasabanın Ele Geçirilişi",
+    "gallery.sub4": "Doğanın kayıp bir medeniyeti geri alması"
+  }
+};
+  function apply(lang) {
+    lang = (lang === 'tr') ? 'tr' : 'en';
+    localStorage.setItem('mt_lang', lang);
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var k = el.getAttribute('data-i18n');
+      if (T[lang] && T[lang][k] !== undefined) el.textContent = T[lang][k];
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el) {
+      var k = el.getAttribute('data-i18n-html');
+      if (T[lang] && T[lang][k] !== undefined) el.innerHTML = T[lang][k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el) {
+      var k = el.getAttribute('data-i18n-ph');
+      if (T[lang] && T[lang][k] !== undefined) el.placeholder = T[lang][k];
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+      var k = el.getAttribute('data-i18n-title');
+      if (T[lang] && T[lang][k] !== undefined) el.title = T[lang][k];
+    });
+    if (T[lang] && T[lang]['page.title']) document.title = T[lang]['page.title'];
+    document.querySelectorAll('.lang-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+  }
+  var saved = localStorage.getItem('mt_lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
+  apply(saved);
+  document.querySelectorAll('.lang-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { apply(btn.getAttribute('data-lang')); });
+  });
+})();
+</script>
+
+</body>
+</html>
