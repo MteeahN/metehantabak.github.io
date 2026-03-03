@@ -55,8 +55,9 @@
       pointer-events: none;
       z-index: 9999;
       transform: translate(-50%, -50%);
-      transition: width .2s, height .2s, background .2s;
+      transition: width .2s, height .2s, background .2s, opacity .3s;
       mix-blend-mode: normal;
+      opacity: 0;
     }
     #cursor-ring {
       position: fixed;
@@ -67,7 +68,8 @@
       pointer-events: none;
       z-index: 9998;
       transform: translate(-50%, -50%);
-      transition: all .08s linear;
+      transition: all .08s linear, opacity .3s;
+      opacity: 0;
     }
 
     /* ── MOUSE GLOW ── */
@@ -78,8 +80,9 @@
       z-index: 0;
       background: radial-gradient(circle, rgba(232,192,122,0.06) 0%, transparent 70%);
       transform: translate(-50%, -50%);
-      transition: all .4s ease;
+      transition: all .4s ease, opacity .4s;
       border-radius: 50%;
+      opacity: 0;
     }
 
     /* ── PRELOADER ── */
@@ -1599,13 +1602,6 @@
         <h2 class="contact-info-title reveal reveal-delay-1" data-i18n-html="contact.title">Let's build something<br><span>extraordinary.</span></h2>
         <p class="contact-desc reveal reveal-delay-2" data-i18n="contact.desc">Whether you have a game concept, a web project, or simply want to connect — my inbox is always open. I respond within 24 hours.</p>
         <div class="contact-links reveal reveal-delay-3">
-          <a href="/cdn-cgi/l/email-protection#8be3eee7e7e4cbe6eeffeee3eae5ffeae9eae0a5e8e4e6" class="contact-link-item">
-            <div class="cli-icon">✉️</div>
-            <div class="cli-text">
-              <span data-i18n="contact.email.label">Email</span>
-              <strong><span class="__cf_email__" data-cfemail="1f777a7373705f727a6b7a777e716b7e7d7e74317c7072">[email&#160;protected]</span></strong>
-            </div>
-          </a>
           <a href="#" class="contact-link-item">
             <div class="cli-icon">🐙</div>
             <div class="cli-text">
@@ -1626,26 +1622,27 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" data-i18n="form.firstname">First Name</label>
-            <input type="text" class="form-input" placeholder="Derrick" data-i18n-ph="form.ph.firstname">
+            <input id="cf-firstname" type="text" class="form-input" placeholder="Derrick" data-i18n-ph="form.ph.firstname">
           </div>
           <div class="form-group">
             <label class="form-label" data-i18n="form.lastname">Last Name</label>
-            <input type="text" class="form-input" placeholder="Rose" data-i18n-ph="form.ph.lastname">
+            <input id="cf-lastname" type="text" class="form-input" placeholder="Rose" data-i18n-ph="form.ph.lastname">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="form.email">Email</label>
-          <input type="email" class="form-input" placeholder="DRose@example.com" data-i18n-ph="form.ph.email">
+          <input id="cf-email" type="email" class="form-input" placeholder="DRose@example.com" data-i18n-ph="form.ph.email">
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="form.subject">Konu</label>
-          <input type="text" class="form-input" placeholder="I'd like to collaborate on..." data-i18n-ph="form.ph.subject">
+          <input id="cf-subject" type="text" class="form-input" placeholder="I'd like to collaborate on..." data-i18n-ph="form.ph.subject">
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="form.message">Mesaj</label>
-          <textarea class="form-input" placeholder="Tell me about your project, timeline, and goals..." data-i18n-ph="form.ph.message"></textarea>
+          <textarea id="cf-message" class="form-input" placeholder="Tell me about your project, timeline, and goals..." data-i18n-ph="form.ph.message"></textarea>
         </div>
         <button class="form-submit" id="form-submit" data-i18n="form.send">Send Message ➔</button>
+        <div id="cf-notice" style="display:none;margin-top:16px;padding:14px 18px;border-radius:8px;font-size:14px;font-weight:500;"></div>
       </div>
     </div>
   </div>
@@ -1672,7 +1669,7 @@
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
 </a>
 
-<script src="/assets/js/MobileNav.js"></script>
+<script src="assets/js/MobileNav.js"></script>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── PRELOADER + FONT CYCLER ──
 const fontFamilies = [
@@ -1737,18 +1734,61 @@ const cursor = document.getElementById('cursor');
 const cursorRing = document.getElementById('cursor-ring');
 const mouseGlow = document.getElementById('mouse-glow');
 let mx = 0, my = 0, rx = 0, ry = 0;
+let cursorVisible = false;
+
+function showCursor() {
+  if (!cursorVisible) {
+    cursorVisible = true;
+    cursor.style.opacity = '1';
+    cursorRing.style.opacity = '1';
+    mouseGlow.style.opacity = '1';
+  }
+}
+function hideCursor() {
+  cursorVisible = false;
+  cursor.style.opacity = '0';
+  cursorRing.style.opacity = '0';
+  mouseGlow.style.opacity = '0';
+}
+
+// Mouse: göster / hareket et / çıkınca gizle
 document.addEventListener('mousemove', e => {
   mx = e.clientX; my = e.clientY;
   cursor.style.left = mx + 'px';
-  cursor.style.top = my + 'px';
+  cursor.style.top  = my + 'px';
   mouseGlow.style.left = mx + 'px';
-  mouseGlow.style.top = my + 'px';
+  mouseGlow.style.top  = my + 'px';
+  showCursor();
 });
+document.addEventListener('mouseleave', hideCursor);
+
+// Touch: sadece dokunma anında görünür, bırakınca kaybolur
+let touchHideTimer = null;
+document.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  mx = rx = t.clientX; my = ry = t.clientY;
+  cursor.style.left    = mx + 'px'; cursor.style.top    = my + 'px';
+  cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px';
+  mouseGlow.style.left = mx + 'px'; mouseGlow.style.top  = my + 'px';
+  clearTimeout(touchHideTimer);
+  showCursor();
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  mx = rx = t.clientX; my = ry = t.clientY;
+  cursor.style.left    = mx + 'px'; cursor.style.top    = my + 'px';
+  cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px';
+  mouseGlow.style.left = mx + 'px'; mouseGlow.style.top  = my + 'px';
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  touchHideTimer = setTimeout(hideCursor, 350);
+}, { passive: true });
+
 function animateCursorRing() {
   rx += (mx - rx) * 0.12;
   ry += (my - ry) * 0.12;
   cursorRing.style.left = rx + 'px';
-  cursorRing.style.top = ry + 'px';
+  cursorRing.style.top  = ry + 'px';
   requestAnimationFrame(animateCursorRing);
 }
 animateCursorRing();
@@ -1874,21 +1914,109 @@ document.querySelectorAll('.project-card').forEach(card => {
 });
 
 // ── FORM SUBMIT ──
-document.getElementById('form-submit').addEventListener('click', function(e) {
-  const btn = this;
-  btn.textContent = 'Sending...';
-  btn.style.opacity = '0.8';
-  setTimeout(() => {
-    btn.textContent = '✓ Message Sent!';
-    btn.style.background = '#4caf82';
-    btn.style.opacity = '1';
-    setTimeout(() => {
-      btn.textContent = 'Send Message ➔';
-      btn.style.background = '';
-      btn.style.opacity = '';
-    }, 3000);
-  }, 1500);
-});
+(function() {
+  var EJS_PUBLIC_KEY  = 'O4l0A_mkZbSZE8jme';
+  var EJS_SERVICE_ID  = 'service_gx5zt9a';
+  var EJS_TEMPLATE_ID = 'template_088mxki';
+
+  var MSGS = {
+    tr: {
+      required  : 'Ad, e-posta ve mesaj alanları zorunludur.',
+      invalid   : 'Geçerli bir e-posta adresi girin.',
+      sending   : 'Gönderiliyor...',
+      success   : '✓ Mesajın gönderildi! En kısa sürede geri döneceğim.',
+      sent      : '✓ Gönderildi!',
+      btnReset  : 'Mesaj Gönder ➔',
+      error     : 'Bir hata oluştu, lütfen tekrar dene.'
+    },
+    en: {
+      required  : 'Name, email and message fields are required.',
+      invalid   : 'Please enter a valid email address.',
+      sending   : 'Sending...',
+      success   : '✓ Message sent! I\'ll get back to you as soon as possible.',
+      sent      : '✓ Sent!',
+      btnReset  : 'Send Message ➔',
+      error     : 'Something went wrong, please try again.'
+    }
+  };
+
+  function getLang() {
+    return (localStorage.getItem('mt_lang') === 'tr') ? 'tr' : 'en';
+  }
+
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+  script.onload = function() {
+    emailjs.init({ publicKey: EJS_PUBLIC_KEY });
+  };
+  document.head.appendChild(script);
+
+  document.getElementById('form-submit').addEventListener('click', function() {
+    var btn    = this;
+    var notice = document.getElementById('cf-notice');
+    var m      = MSGS[getLang()];
+
+    var firstname = document.getElementById('cf-firstname').value.trim();
+    var lastname  = document.getElementById('cf-lastname').value.trim();
+    var email     = document.getElementById('cf-email').value.trim();
+    var subject   = document.getElementById('cf-subject').value.trim();
+    var message   = document.getElementById('cf-message').value.trim();
+
+    function showError(text) {
+      notice.style.display    = 'block';
+      notice.style.background = 'rgba(255,80,80,0.12)';
+      notice.style.border     = '1px solid rgba(255,80,80,0.3)';
+      notice.style.color      = '#ff6b6b';
+      notice.textContent      = text;
+    }
+
+    if (!firstname || !email || !message) { showError(m.required); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError(m.invalid); return; }
+
+    notice.style.display = 'none';
+    btn.disabled         = true;
+    btn.textContent      = m.sending;
+    btn.style.opacity    = '0.8';
+
+    emailjs.send(EJS_SERVICE_ID, EJS_TEMPLATE_ID, {
+      from_name  : firstname + ' ' + lastname,
+      from_email : email,
+      reply_to   : email,
+      subject    : subject || '(Konu belirtilmedi)',
+      message    : message
+    }).then(function() {
+      var m2 = MSGS[getLang()];
+      notice.style.display    = 'block';
+      notice.style.background = 'rgba(232,192,122,0.1)';
+      notice.style.border     = '1px solid rgba(232,192,122,0.3)';
+      notice.style.color      = 'var(--accent2)';
+      notice.textContent      = m2.success;
+      btn.textContent         = m2.sent;
+      btn.style.background    = '#4caf82';
+      btn.style.opacity       = '1';
+      document.getElementById('cf-firstname').value = '';
+      document.getElementById('cf-lastname').value  = '';
+      document.getElementById('cf-email').value     = '';
+      document.getElementById('cf-subject').value   = '';
+      document.getElementById('cf-message').value   = '';
+      setTimeout(function() {
+        btn.disabled         = false;
+        btn.textContent      = MSGS[getLang()].btnReset;
+        btn.style.background = '';
+      }, 4000);
+    }, function(err) {
+      var m2 = MSGS[getLang()];
+      notice.style.display    = 'block';
+      notice.style.background = 'rgba(255,80,80,0.12)';
+      notice.style.border     = '1px solid rgba(255,80,80,0.3)';
+      notice.style.color      = '#ff6b6b';
+      notice.textContent      = m2.error + ' (' + (err.text || err) + ')';
+      btn.disabled            = false;
+      btn.textContent         = m2.btnReset;
+      btn.style.opacity       = '1';
+    });
+  });
+})();
 
 // ── SMOOTH ANCHOR SCROLL ──
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
